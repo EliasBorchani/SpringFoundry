@@ -10,6 +10,8 @@ dependencies {
     implementation(project(":modules:measurements"))
     implementation(project(":modules:authentication"))
 
+    implementation(libs.starter.actuator)
+
     implementation(libs.starter.flyway)
     runtimeOnly(libs.flyway.postgresql)
 

@@ -11,12 +11,13 @@ spring-boot-bom          = { module = "org.springframework.boot:spring-boot-depe
 # Spring Security (crypto only — no full security stack)
 spring-security-crypto   = { module = "org.springframework.security:spring-security-crypto" }
 
-# Spring Boot Flyway starter — version managed by BOM
+# Spring Boot starters — version managed by BOM
 starter-flyway           = { module = "org.springframework.boot:spring-boot-starter-flyway" }
+starter-actuator           = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 
 # Database — versions managed by BOM
 postgresql               = { module = "org.postgresql:postgresql" }
-h2               = { module = "com.h2database:h2" }
+h2                       = { module = "com.h2database:h2" }
 flyway-postgresql        = { module = "org.flywaydb:flyway-database-postgresql" }
 
 # Testing
