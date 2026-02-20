@@ -15,5 +15,6 @@ dependencies {
 
     runtimeOnly(libs.postgresql)
 
+    testRuntimeOnly(libs.h2)
     testImplementation(libs.archunit.junit5)
 }

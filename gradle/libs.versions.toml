@@ -16,6 +16,7 @@ starter-flyway           = { module = "org.springframework.boot:spring-boot-star
 
 # Database — versions managed by BOM
 postgresql               = { module = "org.postgresql:postgresql" }
+h2               = { module = "com.h2database:h2" }
 flyway-postgresql        = { module = "org.flywaydb:flyway-database-postgresql" }
 
 # Testing
