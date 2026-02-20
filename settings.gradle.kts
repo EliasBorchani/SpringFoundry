@@ -18,10 +18,8 @@ include(
     ":core:auth",
     ":core:web",
     ":modules:users",
-    ":modules:billing",
     ":modules:measurements",
     ":modules:authentication",
     ":apps:monolith-app",
     ":apps:users-app",
-    ":apps:billing-app",
 )

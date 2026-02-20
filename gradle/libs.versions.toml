@@ -5,12 +5,26 @@ archunit      = "1.3.0"
 jjwt          = "0.12.6"
 
 [libraries]
-# BOM imported by all subprojects via platform() — manages all Spring/Hibernate/etc. versions
-spring-boot-bom     = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
-archunit-junit5     = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
-jjwt-api            = { module = "io.jsonwebtoken:jjwt-api",     version.ref = "jjwt" }
-jjwt-impl           = { module = "io.jsonwebtoken:jjwt-impl",    version.ref = "jjwt" }
-jjwt-jackson        = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+# BOM — manages all Spring/Hibernate/Jackson/etc. versions
+spring-boot-bom          = { module = "org.springframework.boot:spring-boot-dependencies",      version.ref = "spring-boot" }
+
+# Spring Security (crypto only — no full security stack)
+spring-security-crypto   = { module = "org.springframework.security:spring-security-crypto" }
+
+# Spring Boot Flyway starter — version managed by BOM
+starter-flyway           = { module = "org.springframework.boot:spring-boot-starter-flyway" }
+
+# Database — versions managed by BOM
+postgresql               = { module = "org.postgresql:postgresql" }
+flyway-postgresql        = { module = "org.flywaydb:flyway-database-postgresql" }
+
+# Testing
+archunit-junit5          = { module = "com.tngtech.archunit:archunit-junit5",                   version.ref = "archunit" }
+
+# JWT
+jjwt-api                 = { module = "io.jsonwebtoken:jjwt-api",                               version.ref = "jjwt" }
+jjwt-impl                = { module = "io.jsonwebtoken:jjwt-impl",                              version.ref = "jjwt" }
+jjwt-jackson             = { module = "io.jsonwebtoken:jjwt-jackson",                           version.ref = "jjwt" }
 
 [plugins]
 kotlin-jvm    = { id = "org.jetbrains.kotlin.jvm",            version.ref = "kotlin" }

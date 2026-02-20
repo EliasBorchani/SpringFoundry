@@ -1,27 +1,27 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Stack
 
 - **Language:** Kotlin 2.2.21 on Java 21
-- **Framework:** Spring Boot 4.0.0 + Spring Data JPA
-- **Build:** Gradle 9.2.1 multi-project (Kotlin DSL) with `build-logic` included build + `gradle/libs.versions.toml` version catalog
-- **Database:** H2 in-memory (dev); swap datasource config per-app for production
-- **Test runner:** JUnit 5 + ArchUnit 1.3.0 (architecture enforcement)
+- **Framework:** Spring Boot 4.0.0 + Spring Data JPA + Flyway
+- **Build:** Gradle 9.2.1 multi-project (Kotlin DSL) — `build-logic` included build + `gradle/libs.versions.toml` version catalog
+- **Database:** PostgreSQL — profile `local` (Docker) or `prod` (env vars). No H2.
+- **Auth:** JJWT 0.12.6 (HS256 access tokens) + BCrypt via `spring-security-crypto`
+- **Tests:** JUnit 5 + ArchUnit 1.3.0
 
 ## Commands
 
 ```bash
-# Build everything
-./gradlew build
+# Start local PostgreSQL (one-time)
+docker run --name foundry-postgres -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=appdb -p 5432:5432 -d postgres:16
 
-# Run a specific app
+# Run an app
 ./gradlew :apps:monolith-app:bootRun
 ./gradlew :apps:users-app:bootRun
-./gradlew :apps:billing-app:bootRun
 
-# Run all tests
+# Run all tests (requires local PostgreSQL)
 ./gradlew test
 
 # Run tests for one subproject
@@ -30,107 +30,103 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Run a single test class
 ./gradlew :apps:monolith-app:test --tests "*.ArchitectureTest"
+./gradlew :apps:monolith-app:test --tests "*.AuthControllerTest"
 
-# Build a fat JAR for an app
+# Build a fat JAR
 ./gradlew :apps:monolith-app:bootJar
+
+# Compile without running tests
+./gradlew :apps:monolith-app:classes :apps:monolith-app:testClasses
 ```
 
 ## Project structure
 
 ```
 root/
-├── gradle/
-│   └── libs.versions.toml       # Version catalog — single source of truth for all deps
-├── build-logic/                 # Convention plugins (included build, replaces old buildSrc)
+├── gradle/libs.versions.toml    # Version catalog — single source of truth for versioned deps
+├── build-logic/                 # Convention plugins (included build)
 │   └── src/main/kotlin/
-│       ├── foundry.kotlin-library.gradle.kts   # Base: Kotlin + Spring BOM via platform() + JUnit 5
-│       ├── foundry.spring-module.gradle.kts    # Adds: Spring Data JPA + kotlin-spring/jpa
-│       └── foundry.spring-app.gradle.kts       # Adds: Spring Boot plugin + web + H2
+│       ├── foundry.kotlin-library.gradle.kts   # Base: Kotlin + Spring BOM + JUnit 5 + kotlin-reflect
+│       ├── foundry.spring-module.gradle.kts    # Adds: spring-boot-starter-data-jpa + kotlin-spring/jpa
+│       └── foundry.spring-app.gradle.kts       # Adds: Spring Boot plugin + web + data-jpa
 │
-├── core/                        # Shared primitives — allowed everywhere, no business logic
-│   ├── domain/                  # EntityId (base for typed IDs), Money value object
+├── core/                        # Shared primitives — no business logic
+│   ├── domain/                  # EntityId, Money
 │   ├── auth/                    # AccountContext (authenticated user per request)
 │   └── web/                     # ErrorResponse, PageResponse<T>
 │
-├── modules/                     # Feature modules — pure business logic, no controllers
-│   ├── users/
-│   ├── billing/
-│   └── measurements/
+├── modules/                     # Business modules — no controllers
+│   ├── users/                   # User entity, UserPort/UserService
+│   ├── measurements/            # Measurement entity, MeasurementPort/MeasurementService
+│   └── authentication/          # Credential + RefreshToken entities, AuthPort/AuthService (JWT)
 │
-└── apps/                        # Deployable Spring Boot applications
-    ├── monolith-app/            # All modules; port 8080; has ArchUnit tests
-    ├── users-app/               # users module only; port 8081
-    └── billing-app/             # billing + measurements modules; port 8082
+├── apps/                        # Deployable Spring Boot applications
+│   ├── monolith-app/            # All modules; port 8080; ArchUnit + AuthControllerTest
+│   └── users-app/               # users module only; port 8081
+│
+└── doc/
+    └── architecture.md          # Full architecture documentation
 ```
 
-## Architecture
+## Module internal layers
 
-### Module internal layers
-
-Each `modules/<name>/` follows the same three-layer structure:
+Every `modules/<name>/` uses the same three-layer structure:
 
 ```
-domain/           @Entity classes, enums — no Spring, no JPA queries
-application/      @Service, port interfaces, DTOs — framework-agnostic business logic
-  dto/            Data classes transferred between layers and to app controllers
-infrastructure/   Spring Data JpaRepository interfaces + @Repository adapters
+domain/           @Entity, enums — no Spring, no JPA queries
+application/      @Service (XxxPort impl), XxxPort interface, XxxRepository interface, DTOs
+  dto/            Data classes passed between layers and to controllers
+infrastructure/   XxxJpaRepository (extends JpaRepository) + XxxRepositoryAdapter (@Repository)
 ```
 
-### Two kinds of ports
+**Apps inject only `XxxPort`. Never import `XxxService`, `XxxJpaRepository`, or anything from `infrastructure/`.**
 
-Every module exposes two interface types, both in `application/`:
-
-| Interface | Direction | Example | Implemented by |
-|---|---|---|---|
-| `XxxPort` | Inbound — what apps call | `UserPort` | `UserService` (`@Service`) |
-| `XxxRepository` | Outbound — what the service needs | `UserRepository` | `XxxRepositoryAdapter` (`@Repository`) |
-
-Apps inject only the `XxxPort` interface; they never import `XxxService` or infrastructure types.
-
-### Dependency graph
+## Dependency rules (enforced by Gradle + ArchUnit)
 
 ```
 apps  →  modules  →  core/domain
 apps  →  core/auth
 apps  →  core/web
-modules  →  core/domain
+modules  ↛  modules   ← FORBIDDEN
 ```
 
-Modules never depend on other modules. This is **enforced at the Gradle level** — a module's `build.gradle.kts` simply does not declare another module as a dependency.
+## Configuration / profiles
 
-### Cross-module orchestration (app layer only)
+`apps/monolith-app/src/main/resources/`:
+- `application.yml` — base config: JPA (`ddl-auto: validate`), server port `${PORT:8080}`, JWT defaults
+- `application-local.yml` — `localhost:5432/appdb`, credentials `postgres/secret`
+- `application-prod.yml` — `${DB_URL}`, `${DB_USER}`, `${DB_PASSWORD}` (Railway)
 
-```kotlin
-// apps/monolith-app — the ONLY place two modules may interact
-@RestController
-class UserBillingController(
-    private val userPort: UserPort,      // from modules:users
-    private val billingPort: BillingPort // from modules:billing
-) { ... }
-```
+`src/test/resources/application.properties` — sets `spring.profiles.active=local` so tests use local PostgreSQL.
 
-### Spring Boot app configuration
+## Authentication module
 
-All three apps use the same base annotations to scan across module packages:
-```kotlin
-@SpringBootApplication(scanBasePackages = ["io.github.eliasborchani.foundry"])
-@EntityScan("io.github.eliasborchani.foundry")           // spring-boot-persistence (Spring Boot 4+)
-@EnableJpaRepositories("io.github.eliasborchani.foundry") // spring-data-jpa
-```
-> Note: In Spring Boot 4.0, `@EntityScan` moved from `org.springframework.boot.autoconfigure.domain`
-> to `org.springframework.boot.persistence.autoconfigure`.
+`modules/authentication` — standalone, no dependency on `modules/users`.
 
-### ArchUnit (enforced in monolith-app tests)
+- **`AuthPort`** (inbound): `register(userId, email, rawPassword)`, `login(email, password)`, `refresh(token)`, `revoke(token)`
+- **JWT**: HS256, `sub = userId`, `email` claim, TTL from `auth.jwt.access-token-ttl-seconds`
+- **Refresh tokens**: opaque UUID, stored in `refresh_tokens` table, rotated on use
+- **`AuthController`** in `apps/monolith-app` calls both `UserPort` (create user) and `AuthPort` (create credentials) — the only place these two modules meet
 
-`apps/monolith-app/src/test/.../ArchitectureTest.kt` contains three rules:
-1. Modules must not depend on each other (`slices().notDependOnEachOther()`)
-2. `@RestController` only allowed in `apps` packages
-3. Domain classes must not import Spring
+## Spring Boot 4.0 quirks
+
+- `@EntityScan` is in `org.springframework.boot.persistence.autoconfigure` (moved from `autoconfigure.domain`)
+- `@AutoConfigureMockMvc` does not exist — use `MockMvcBuilders.webAppContextSetup(wac).build()` in `@BeforeEach`
+- `TestRestTemplate` does not exist — use `MockMvc` (mock env) or `WebTestClient` (reactive)
+- `ObjectMapper` is `tools.jackson.databind.ObjectMapper` (Jackson 3.x, not `com.fasterxml`)
+- `kotlin-reflect` must be declared explicitly — Spring Data JPA needs it for Kotlin entity constructor discovery
+- `PasswordEncoder.encode()` returns `String?` under `-Xjsr305=strict` — use `!!`
+
+## Build system notes
+
+Convention plugins (in `build-logic`) use **string literals** for BOM-managed Spring starters (`spring-boot-starter-web`, etc.). This is intentional — a Kotlin 2.2.x IR codegen bug in included builds crashes when calling `Provider<@EnhancedNullability ...>` return types from type-safe catalog accessors directly inside `implementation()`. All explicitly-versioned deps and non-BOM deps use `libs.*` accessors.
+
+The `libs.versions.springBoot` type-safe accessor does NOT resolve inside `build-logic` (separate known Gradle issue with included builds). Plugin versions are hardcoded in `build-logic/build.gradle.kts`.
 
 ## Adding a new module
 
-1. Create `modules/<name>/build.gradle.kts` with `id("foundry.spring-module")`
-2. Add `:modules:<name>` to `settings.gradle.kts`
-3. Follow the `domain / application / infrastructure` structure
-4. Expose functionality only via a `XxxPort` interface in `application/`
-5. Add the module as a dependency in the relevant `apps/*/build.gradle.kts`
+1. `mkdir -p modules/<name>/{domain,application/dto,infrastructure}`
+2. Create `modules/<name>/build.gradle.kts` with `id("foundry.spring-module")`
+3. Add `:modules:<name>` to `settings.gradle.kts`
+4. Create `domain/@Entity`, `application/XxxPort`, `application/XxxService`, `application/XxxRepository`, and infrastructure adapters — following `modules/users/` as a pattern
+5. Add `implementation(project(":modules:<name>"))` to the relevant `apps/*/build.gradle.kts`

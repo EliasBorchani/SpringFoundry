@@ -10,5 +10,10 @@ dependencies {
     implementation(project(":modules:measurements"))
     implementation(project(":modules:authentication"))
 
-    testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+    implementation(libs.starter.flyway)
+    runtimeOnly(libs.flyway.postgresql)
+
+    runtimeOnly(libs.postgresql)
+
+    testImplementation(libs.archunit.junit5)
 }
