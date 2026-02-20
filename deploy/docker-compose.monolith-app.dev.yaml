@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+
+  monolith-app:
+    build:
+      context: ..
+      dockerfile: apps/monolith-app/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/appdb
+      PGUSER: postgres
+      PGPASSWORD: secret
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres

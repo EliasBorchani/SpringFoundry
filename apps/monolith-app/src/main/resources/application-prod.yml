@@ -4,6 +4,7 @@ spring:
     username: ${PGUSER:postgres}
     password: ${PGPASSWORD:secret}
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
