@@ -1,6 +1,6 @@
 package io.github.eliasborchani.foundry.modules.authentication.application.dto
 
-data class TokenPairDto(
+data class TokenPair(
     val accessToken: String,
     val refreshToken: String,
     val tokenType: String = "Bearer",

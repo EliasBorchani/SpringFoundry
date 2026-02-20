@@ -33,28 +33,33 @@ Each `modules/<name>/` follows the same three-layer structure:
 
 ```
 modules/users/
-├── domain/           Pure Kotlin — @Entity classes, enums, value objects
-│                     No Spring annotations, no JPA queries, no imports from other modules
+├── domain/              Pure Kotlin — entities, enums, value objects
+│   └── UserEntity       @Entity — maps to the database table, no Spring logic
 │
-├── application/      Business logic layer
-│   ├── UserPort      Inbound interface — what the app layer calls
-│   ├── UserService   @Service implementing UserPort
-│   ├── UserRepository  Outbound interface — what the service needs from persistence
-│   └── dto/          Data classes passed between layers and to controllers
+├── application/         Business logic layer
+│   ├── UserService      Interface — business logic contract, what the app layer calls
+│   ├── UserServiceImpl  @Service implementing UserService
+│   ├── UserRepository   Interface — data access contract, what the service needs
+│   └── dto/             Plain data classes (e.g. User) — no persistence annotations, no suffix
 │
-└── infrastructure/   Spring / JPA wiring
+└── infrastructure/      Spring / JPA wiring
     ├── UserJpaRepository      extends JpaRepository<User, UUID>
     └── UserRepositoryAdapter  @Repository implementing UserRepository
 ```
 
-### Two kinds of ports
+### Naming conventions
 
-| Interface | Direction | Implemented by | Called by |
-|---|---|---|---|
-| `XxxPort` | **Inbound** — public API of the module | `XxxService` (`@Service`) | App controllers |
-| `XxxRepository` | **Outbound** — what the service needs | `XxxRepositoryAdapter` (`@Repository`) | `XxxService` |
+| Role | Example | Annotation | Notes                                                          |
+|---|---|---|----------------------------------------------------------------|
+| Entity | `UserEntity` | `@Entity` | Maps to a DB table; always suffixed with `Entity`              |
+| DTO | `User` | — | Plain Kotlin data class; uses the domain name without a suffix |
+| Service interface | `UserService` | — | Business logic contract; what app controllers inject           |
+| Service impl | `UserServiceImpl` | `@Service` | Concrete business logic; never imported by app controllers     |
+| Repository interface | `UserRepository` | — | Data access contract; what `UserServiceImpl` depends on        |
+| Repository impl | `UserRepositoryAdapter` | `@Repository` | based on `UserJpaRepository` JPA/Spring Data adapter; prefixed with `Jpa`         |
+| Controller | `UserController` | `@RestController` | Lives in `apps/` only, never in `modules/`                     |
 
-App controllers only ever inject `XxxPort`. They never import `XxxService`, `XxxJpaRepository`, or anything from `infrastructure/`.
+App controllers inject only `XxxService`. They never import `XxxServiceImpl`, `JpaXxxRepository`, or anything from `infrastructure/`.
 
 ---
 
@@ -88,8 +93,8 @@ An app is just a `@SpringBootApplication` that:
 // Only the app layer may combine two modules
 @RestController
 class UserBillingController(
-    private val userPort: UserPort,      // injected from modules:users
-    private val billingPort: BillingPort // injected from modules:billing
+    private val userService: UserService,      // injected from modules:users
+    private val billingService: BillingService // injected from modules:billing
 ) {
     @GetMapping("/users/{id}/billing-summary")
     fun summary(@PathVariable id: UUID): UserBillingSummaryDto { ... }
@@ -191,9 +196,11 @@ dependencies { implementation(project(":core:domain")) }
 ```
 
 ```kotlin
-// 4. Create domain/@Entity, application/XxxPort, application/XxxService,
-//    application/XxxRepository, infrastructure adapters
-//    following the pattern in modules/users/
+// 4. Follow the naming conventions:
+//    domain/       XxxEntity (@Entity)
+//    application/  XxxService (interface), XxxServiceImpl (@Service),
+//                  XxxRepository (interface), dto/Xxx (plain DTO)
+//    infrastructure/  JpaXxxRepository (@Repository implementing XxxRepository)
 ```
 
 ```kotlin

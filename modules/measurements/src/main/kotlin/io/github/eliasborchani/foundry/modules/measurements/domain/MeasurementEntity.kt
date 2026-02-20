@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "measurements")
-class Measurement(
+class MeasurementEntity(
     @Id
     val id: UUID = UUID.randomUUID(),
 

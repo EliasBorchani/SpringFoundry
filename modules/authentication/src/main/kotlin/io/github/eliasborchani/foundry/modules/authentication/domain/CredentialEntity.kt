@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "credentials")
-class Credential(
+class CredentialEntity(
     @Id
     val id: UUID = UUID.randomUUID(),
 

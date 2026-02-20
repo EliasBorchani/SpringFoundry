@@ -1,10 +1,10 @@
 package io.github.eliasborchani.foundry.modules.measurements.application.dto
 
-import io.github.eliasborchani.foundry.modules.measurements.domain.Measurement
+import io.github.eliasborchani.foundry.modules.measurements.domain.MeasurementEntity
 import java.time.Instant
 import java.util.UUID
 
-data class MeasurementDto(
+data class Measurement(
     val id: UUID,
     val userId: UUID,
     val type: String,
@@ -13,7 +13,7 @@ data class MeasurementDto(
     val recordedAt: Instant,
 ) {
     companion object {
-        fun from(measurement: Measurement) = MeasurementDto(
+        fun from(measurement: MeasurementEntity) = Measurement(
             id = measurement.id,
             userId = measurement.userId,
             type = measurement.type,

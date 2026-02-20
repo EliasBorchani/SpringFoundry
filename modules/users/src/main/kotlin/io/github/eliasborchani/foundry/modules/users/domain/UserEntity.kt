@@ -1,4 +1,4 @@
-package io.github.eliasborchani.foundry.modules.authentication.domain
+package io.github.eliasborchani.foundry.modules.users.domain
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -8,26 +8,17 @@ import java.time.Instant
 import java.util.UUID
 
 @Entity
-@Table(name = "refresh_tokens")
-class RefreshToken(
+@Table(name = "users")
+class UserEntity(
     @Id
     val id: UUID = UUID.randomUUID(),
 
     @Column(nullable = false, unique = true)
-    val token: String,
-
-    @Column(nullable = false)
-    val userId: UUID,
-
-    @Column(nullable = false)
     val email: String,
 
     @Column(nullable = false)
-    val expiresAt: Instant,
+    val displayName: String,
 
     @Column(nullable = false, updatable = false)
     val createdAt: Instant = Instant.now(),
-
-    @Column(nullable = false)
-    var revoked: Boolean = false,
 )

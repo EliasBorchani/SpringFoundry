@@ -56,9 +56,9 @@ root/
 │   └── web/                     # ErrorResponse, PageResponse<T>
 │
 ├── modules/                     # Business modules — no controllers
-│   ├── users/                   # User entity, UserPort/UserService
-│   ├── measurements/            # Measurement entity, MeasurementPort/MeasurementService
-│   └── authentication/          # Credential + RefreshToken entities, AuthPort/AuthService (JWT)
+│   ├── users/                   # UserEntity, UserService/UserServiceImpl
+│   ├── measurements/            # MeasurementEntity, MeasurementService/MeasurementServiceImpl
+│   └── authentication/          # CredentialEntity + RefreshTokenEntity, AuthService/AuthServiceImpl (JWT)
 │
 ├── apps/                        # Deployable Spring Boot applications
 │   ├── monolith-app/            # All modules; port 8080; ArchUnit + AuthControllerTest
@@ -68,18 +68,32 @@ root/
     └── architecture.md          # Full architecture documentation
 ```
 
+## Naming conventions
+
+| Role | Name | Annotation | Location |
+|---|---|---|---|
+| Entity | `UserEntity` | `@Entity` | `domain/` |
+| DTO | `User` | — | `application/dto/` |
+| Service interface | `UserService` | — | `application/` |
+| Service impl | `UserServiceImpl` | `@Service` | `application/` |
+| Repository interface | `UserRepository` | — | `application/` |
+| Repository impl | `JpaUserRepository` | `@Repository` | `infrastructure/` |
+| Controller | `UserController` | `@RestController` | `apps/` only |
+
+**Key rules:**
+- Entities are always suffixed `Entity`; DTOs use the plain domain name with no suffix
+- App controllers inject `XxxService` (interface) only — never `XxxServiceImpl`, `JpaXxxRepository`, or anything from `infrastructure/`
+
 ## Module internal layers
 
 Every `modules/<name>/` uses the same three-layer structure:
 
 ```
-domain/           @Entity, enums — no Spring, no JPA queries
-application/      @Service (XxxPort impl), XxxPort interface, XxxRepository interface, DTOs
-  dto/            Data classes passed between layers and to controllers
-infrastructure/   XxxJpaRepository (extends JpaRepository) + XxxRepositoryAdapter (@Repository)
+domain/           XxxEntity (@Entity), enums — no Spring, no JPA queries
+application/      XxxService (interface), XxxServiceImpl (@Service),
+                  XxxRepository (interface), dto/Xxx (plain DTO)
+infrastructure/   JpaXxxRepository (@Repository implementing XxxRepository)
 ```
-
-**Apps inject only `XxxPort`. Never import `XxxService`, `XxxJpaRepository`, or anything from `infrastructure/`.**
 
 ## Dependency rules (enforced by Gradle + ArchUnit)
 
@@ -103,10 +117,10 @@ modules  ↛  modules   ← FORBIDDEN
 
 `modules/authentication` — standalone, no dependency on `modules/users`.
 
-- **`AuthPort`** (inbound): `register(userId, email, rawPassword)`, `login(email, password)`, `refresh(token)`, `revoke(token)`
+- **`AuthService`** (interface): `register(userId, email, rawPassword)`, `login(email, password)`, `refresh(token)`, `revoke(token)`
 - **JWT**: HS256, `sub = userId`, `email` claim, TTL from `auth.jwt.access-token-ttl-seconds`
 - **Refresh tokens**: opaque UUID, stored in `refresh_tokens` table, rotated on use
-- **`AuthController`** in `apps/monolith-app` calls both `UserPort` (create user) and `AuthPort` (create credentials) — the only place these two modules meet
+- **`AuthController`** in `apps/monolith-app` calls both `UserService` (create user) and `AuthService` (create credentials) — the only place these two modules meet
 
 ## Spring Boot 4.0 quirks
 
@@ -128,5 +142,5 @@ The `libs.versions.springBoot` type-safe accessor does NOT resolve inside `build
 1. `mkdir -p modules/<name>/{domain,application/dto,infrastructure}`
 2. Create `modules/<name>/build.gradle.kts` with `id("foundry.spring-module")`
 3. Add `:modules:<name>` to `settings.gradle.kts`
-4. Create `domain/@Entity`, `application/XxxPort`, `application/XxxService`, `application/XxxRepository`, and infrastructure adapters — following `modules/users/` as a pattern
+4. Create `domain/XxxEntity` (`@Entity`), `application/XxxService` (interface), `application/XxxServiceImpl` (`@Service`), `application/XxxRepository` (interface), `application/dto/Xxx` (plain DTO), `infrastructure/JpaXxxRepository` (`@Repository`) — follow `modules/users/` as a pattern
 5. Add `implementation(project(":modules:<name>"))` to the relevant `apps/*/build.gradle.kts`

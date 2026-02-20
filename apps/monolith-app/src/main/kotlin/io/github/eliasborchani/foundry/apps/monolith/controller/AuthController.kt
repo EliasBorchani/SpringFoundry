@@ -1,8 +1,8 @@
 package io.github.eliasborchani.foundry.apps.monolith.controller
 
-import io.github.eliasborchani.foundry.modules.authentication.application.AuthPort
-import io.github.eliasborchani.foundry.modules.authentication.application.dto.TokenPairDto
-import io.github.eliasborchani.foundry.modules.users.application.UserPort
+import io.github.eliasborchani.foundry.modules.authentication.application.AuthService
+import io.github.eliasborchani.foundry.modules.authentication.application.dto.TokenPair
+import io.github.eliasborchani.foundry.modules.users.application.UserService
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -14,30 +14,30 @@ import org.springframework.web.server.ResponseStatusException
 @RestController
 @RequestMapping("/auth")
 class AuthController(
-    private val userPort: UserPort,
-    private val authPort: AuthPort,
+    private val userService: UserService,
+    private val authService: AuthService,
 ) {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    fun register(@RequestBody request: RegisterRequest): TokenPairDto {
-        val user = userPort.create(email = request.email, displayName = request.displayName)
-        authPort.register(userId = user.id, email = request.email, rawPassword = request.password)
-        return authPort.login(email = request.email, rawPassword = request.password)
+    fun register(@RequestBody request: RegisterRequest): TokenPair {
+        val user = userService.create(email = request.email, displayName = request.displayName)
+        authService.register(userId = user.id, email = request.email, rawPassword = request.password)
+        return authService.login(email = request.email, rawPassword = request.password)
     }
 
     @PostMapping("/login")
-    fun login(@RequestBody request: LoginRequest): TokenPairDto =
+    fun login(@RequestBody request: LoginRequest): TokenPair =
         try {
-            authPort.login(email = request.email, rawPassword = request.password)
+            authService.login(email = request.email, rawPassword = request.password)
         } catch (e: IllegalArgumentException) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, e.message)
         }
 
     @PostMapping("/refresh")
-    fun refresh(@RequestBody request: RefreshRequest): TokenPairDto =
+    fun refresh(@RequestBody request: RefreshRequest): TokenPair =
         try {
-            authPort.refresh(refreshToken = request.refreshToken)
+            authService.refresh(refreshToken = request.refreshToken)
         } catch (e: IllegalArgumentException) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, e.message)
         }
@@ -45,7 +45,7 @@ class AuthController(
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun logout(@RequestBody request: RefreshRequest) {
-        authPort.revoke(refreshToken = request.refreshToken)
+        authService.revoke(refreshToken = request.refreshToken)
     }
 }
 
