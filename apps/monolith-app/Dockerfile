@@ -1,22 +1,24 @@
-# Use OpenJDK 21 base image
-FROM eclipse-temurin:21-jdk-jammy
+# Stage 1: Build the jar
+FROM eclipse-temurin:21-jdk-jammy AS builder
 
 WORKDIR /app
 
-# Copy everything
+# Copy everything needed to build the app
 COPY . .
 
 # Make Gradle wrapper executable
 RUN chmod +x ./gradlew
 
-# Build your Spring Boot jar (skip tests for speed)
+# Build the Spring Boot jar
 RUN ./gradlew :apps:monolith-app:bootJar --no-daemon -x test
 
-# Set JAR path
-ARG JAR_FILE=apps/monolith-app/build/libs/monolith-app.jar
+# Stage 2: Clean runtime image
+FROM eclipse-temurin:21-jdk-jammy
 
-# Copy built jar to a clean location
-COPY $JAR_FILE app.jar
+WORKDIR /app
+
+# Copy only the jar from the builder stage
+COPY --from=builder /app/apps/monolith-app/build/libs/monolith-app.jar app.jar
 
 # Expose port
 EXPOSE 8080
