@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":modules:authentication"))
 
     implementation(libs.starter.actuator)
+    implementation(libs.springdoc.webmvc.ui)
 
     implementation(libs.starter.flyway)
     runtimeOnly(libs.flyway.postgresql)

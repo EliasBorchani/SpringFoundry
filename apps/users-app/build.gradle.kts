@@ -7,4 +7,5 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:web"))
     implementation(project(":modules:users"))
+    implementation(libs.springdoc.webmvc.ui)
 }
